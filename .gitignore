@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+
+# Build artifacts / binaries
+main
+*.out
+*.exe
+
+# Debug symbols (macOS / LLDB)
+*.dSYM/
+*.dSYM/**
+
+# Temporary / tutorial files
+tut
+tut.cpp
+
+# Editors
+.vscode/
