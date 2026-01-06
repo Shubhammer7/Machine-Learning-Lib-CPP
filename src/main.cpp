@@ -2,29 +2,109 @@
 #include <cmath>
 using namespace std;
 
+//13.9970629 11.55706149 11.50305058 9.26796272 7.58230226 11.24794329 9.36474558 9.44889943 4.91445624 10.43529344
+
+//13.56090341 12.59844447 12.22159385 8.17066895 6.92807306 13.6060403 9.67835263 8.52601592 4.34361701 8.4418719
+
+// Const for testing calcs 
+const int N = 10;
+
+// y_hat prediction 
+void predict_y(float x[], float y_hat[], int len, float beta0, float beta1){
+
+    for (int i = 0; i < len; i++) {
+        y_hat[i] = beta0 + (beta1 * x[i]);
+    }
+
+}
+
+// All calcs for stats and reg coeff
+float calc_mean(float arr[], int len){
+    float arr_sum = 0.0f;
+
+    for (int i=0;i<len;i++){
+        arr_sum += arr[i];
+    }
+    float arr_mean = (arr_sum / len);
+    return arr_mean;
+} 
+
+float calc_variance(float arr[],int len, float mean) {
+    
+    float var = 0.0f;
+
+    for(int i=0;i<len;i++){
+        float n_diff = arr[i] - mean;
+        var += (n_diff * n_diff);
+    }
+
+    return var;
+}
+
+float calc_covariance(float x[], float y[], int len, float x_mean, float y_mean) {
+
+    float sum_x_y = 0.0f;
+
+    for (int i = 0; i < len; i++) {
+        float x_diff = x[i] - x_mean; 
+        float y_diff = y[i] - y_mean; 
+              
+        sum_x_y += x_diff * y_diff;
+    }
+
+    return sum_x_y ;
+}
+
+float calc_beta1(float cov_xy, float var_x){
+
+    float beta1 = cov_xy / var_x;       
+
+    return beta1;
+}
+
+float calc_beta0(float x_mean, float y_mean, float beta1) {
+
+    float beta0 = y_mean - (beta1 * x_mean);
+
+    return beta0;
+}
+
+float calc_sse(float y[], float y_hat[], int len){
+    
+    float sse = 0.0f;
+
+    for (int i = 0; i < len; i++) {
+        sse += pow(y[i] - y_hat[i], 2);
+    }
+
+    return sse; 
+}
+
 int main() {
 
     //Inititalizing Accumulators 
+    // float* x; 
 
-    float x[10];
-    float y[10];
+    float y[N];
     
-    int len_x = sizeof(x) / sizeof(x[0]);
-    int len_y = sizeof(y) / sizeof(y[0]);
+    float* x = new float[N];
+
+    int len_x = N;
+    int len_y = N;
+
+    if (len_x == 0){
+        cout << "Length of the input array to be greated than 0" << endl;
+    }
     
-    float x_sum = 0.0f;
-    float y_sum = 0.0f;
-    
-    float x_var = 0.0f;
-    float y_var = 0.0f;
-    
-    float sum_x_y = 0.0f;  // co-var calc 
-    float er = 0.0f;
-    
-    float y_hat[10] = {};
+    if (len_y == 0){
+        cout << "Length of the input array needs to be greated than 0" << endl;
+    }
+
+    float y_hat[N] = {};
     
     cout << "Welcome to Machine Learning in C++" << endl;
     
+    // Read input arrays (only X, y. SLR so far)
     cout << "Please enter 10 values of X:" << endl;
     for (int i = 0; i < len_x; i++) {
         cin >> x[i];
@@ -32,44 +112,30 @@ int main() {
     
     cout << "\nPlease enter 10 values of Y:" << endl;
 
-    // Aggregation 
-    //sums
     for (int i = 0; i < len_y; i++) {
         cin >> y[i];
     }
     
-    for (int i = 0; i < 10; i++) {
-        x_sum += x[i];
-        y_sum += y[i];
-    }
-    
-    //means
-    float x_mean = x_sum / len_x;
-    float y_mean = y_sum / len_y;
-    
+    // means
+    float x_mean = calc_mean(x, len_x);
+    float y_mean = calc_mean(y, len_y);
 
-    // var and co-var components
-    for (int i = 0; i < 10; i++) {
-        float x_diff = x[i] - x_mean; 
-        float y_diff = y[i] - y_mean; 
-        
-        x_var += (x_diff * x_diff);      //sum of square diff of x    
-        y_var += (y_diff * y_diff);      //sum of square diff of y   
-        sum_x_y += x_diff * y_diff;      //sum of product of differences (x,y)
-    }
+    //variance
+    float x_var = calc_variance(x, len_x, x_mean);
+    float y_var = calc_variance(y, len_y, y_mean);
+
+    //sum of difference product (x, y)
+    float sum_x_y = calc_covariance(x, y, len_x, x_mean, y_mean);
     
-    // regresssion coefficients
-    float beta_1 = sum_x_y / x_var;       
-    float beta_0 = y_mean - (beta_1 * x_mean);
-    
-    //predict y 
-    for (int i = 0; i < 10; i++) {
-        y_hat[i] = beta_0 + (beta_1 * x[i]);
-    }
-    //error
-    for (int i = 0; i < 10; i++) {
-        er += pow(y[i] - y_hat[i], 2);
-    }
+    //regression coefficients 
+    float beta_1 = calc_beta1(sum_x_y, x_var);
+    float beta_0 = calc_beta0(x_mean, y_mean, beta_1);
+
+    //y_hat 
+    predict_y(x, y_hat, len_x, beta_0, beta_1);
+
+    //mse 
+    float sse = calc_sse(y, y_hat, len_y);
     
     // output results
     cout << "\n---------------Summary Statistics---------------\n" << endl;
@@ -86,8 +152,12 @@ int main() {
     cout << "\nRegression Coefficient β₁: " << beta_1 << endl;
     cout << "Intercept β₀: " << beta_0 << endl;
     
-    cout << "\nMean Square Error (MSE): " << er / len_y << endl;
-    cout << "Root Mean Square Error (RMSE): " << sqrt(er / len_y) << endl;
+    cout << "\nMean Square Error (MSE): " << sse / len_y << endl;
+    cout << "Root Mean Square Error (RMSE): " << sqrt(sse / len_y) << endl;
     
+
+    delete[] x;
+    x = nullptr;
+
     return 0;
 }
