@@ -1,16 +1,10 @@
 #include <iostream>
+#include <fstream>
 #include <cmath>
 using namespace std;
 
-//13.9970629 11.55706149 11.50305058 9.26796272 7.58230226 11.24794329 9.36474558 9.44889943 4.91445624 10.43529344
-
-//13.56090341 12.59844447 12.22159385 8.17066895 6.92807306 13.6060403 9.67835263 8.52601592 4.34361701 8.4418719
-
-// Const for testing calcs 
-const int N = 10;
-
 // y_hat prediction 
-void predict_y(float x[], float y_hat[], int len, float beta0, float beta1){
+void predict_y(double x[], double y_hat[], int len, double beta0, double beta1){
 
     for (int i = 0; i < len; i++) {
         y_hat[i] = beta0 + (beta1 * x[i]);
@@ -19,35 +13,35 @@ void predict_y(float x[], float y_hat[], int len, float beta0, float beta1){
 }
 
 // All calcs for stats and reg coeff
-float calc_mean(float arr[], int len){
-    float arr_sum = 0.0f;
+double calc_mean(double arr[], int len){
+    double arr_sum = 0.0;
 
     for (int i=0;i<len;i++){
         arr_sum += arr[i];
     }
-    float arr_mean = (arr_sum / len);
+    double arr_mean = (arr_sum / len);
     return arr_mean;
 } 
 
-float calc_variance(float arr[],int len, float mean) {
+double calc_variance(double arr[],int len, double mean) {
     
-    float var = 0.0f;
+    double var = 0.0;
 
     for(int i=0;i<len;i++){
-        float n_diff = arr[i] - mean;
+        double n_diff = arr[i] - mean;
         var += (n_diff * n_diff);
     }
 
     return var;
 }
 
-float calc_covariance(float x[], float y[], int len, float x_mean, float y_mean) {
+double calc_covariance(double x[], double y[], int len, double x_mean, double y_mean) {
 
-    float sum_x_y = 0.0f;
+    double sum_x_y = 0.0;
 
     for (int i = 0; i < len; i++) {
-        float x_diff = x[i] - x_mean; 
-        float y_diff = y[i] - y_mean; 
+        double x_diff = x[i] - x_mean; 
+        double y_diff = y[i] - y_mean; 
               
         sum_x_y += x_diff * y_diff;
     }
@@ -55,26 +49,26 @@ float calc_covariance(float x[], float y[], int len, float x_mean, float y_mean)
     return sum_x_y ;
 }
 
-float calc_beta1(float cov_xy, float var_x){
+double calc_beta1(double cov_xy, double var_x){
 
-    float beta1 = cov_xy / var_x;       
+    double beta1 = cov_xy / var_x;       
 
     return beta1;
 }
 
-float calc_beta0(float x_mean, float y_mean, float beta1) {
+double calc_beta0(double x_mean, double y_mean, double beta1) {
 
-    float beta0 = y_mean - (beta1 * x_mean);
+    double beta0 = y_mean - (beta1 * x_mean);
 
     return beta0;
 }
 
-float calc_sse(float y[], float y_hat[], int len){
+double calc_sse(double y[], double y_hat[], int len){
     
-    float sse = 0.0f;
+    double sse = 0.0;
 
     for (int i = 0; i < len; i++) {
-        sse += pow(y[i] - y_hat[i], 2);
+        sse += (y[i] - y_hat[i]) * (y[i] - y_hat[i]);
     }
 
     return sse; 
@@ -82,60 +76,82 @@ float calc_sse(float y[], float y_hat[], int len){
 
 int main() {
 
-    //Inititalizing Accumulators 
-    // float* x; 
-
-    float y[N];
+    //Read .csv file (static)
+    int loc = 0;
+    int i = 0;
+    int N = 0; 
     
-    float* x = new float[N];
+    ifstream iFile;
+    string line = "", first = "", last = "";
+    iFile.open("tips.csv");
+    getline(iFile,line);
 
+    while (getline(iFile, line)){ 
+        N++;
+    }
+    
+    cout << "Number of rows in the dataset: " << N << endl; 
+
+    iFile.close();
+
+    iFile.open("tips.csv");
+    getline(iFile,line);
+
+    double* x = new double[N]; 
+    double* y = new double[N]; 
+
+    while (getline(iFile,line) && i < N){
+
+        loc = line.find(",");
+        first = line.substr(0, loc);
+        line = line.substr(loc + 1, line.length());
+
+        loc = line.find(",");
+        last = line.substr(0, loc);
+        line = line.substr(loc + 1, line.length());
+        
+        x[i] = stod(first);
+        y[i] = stod(last);
+
+        i++;
+    }
+
+    iFile.close();
+
+    if (N <= 0){
+        cout << "Number of rows should be greated than 0" << endl;
+        return 1;
+    }
+
+    //Inititalizing Accumulators 
     int len_x = N;
     int len_y = N;
 
-    if (len_x == 0){
-        cout << "Length of the input array to be greated than 0" << endl;
-    }
-    
-    if (len_y == 0){
-        cout << "Length of the input array needs to be greated than 0" << endl;
-    }
-
-    float y_hat[N] = {};
+    // dynamically allocated arrays 
+    double* y_hat = new double[N];
     
     cout << "Welcome to Machine Learning in C++" << endl;
     
-    // Read input arrays (only X, y. SLR so far)
-    cout << "Please enter 10 values of X:" << endl;
-    for (int i = 0; i < len_x; i++) {
-        cin >> x[i];
-    }
-    
-    cout << "\nPlease enter 10 values of Y:" << endl;
-
-    for (int i = 0; i < len_y; i++) {
-        cin >> y[i];
-    }
-    
     // means
-    float x_mean = calc_mean(x, len_x);
-    float y_mean = calc_mean(y, len_y);
+    double x_mean = calc_mean(x, len_x);
+    double y_mean = calc_mean(y, len_y);
 
     //variance
-    float x_var = calc_variance(x, len_x, x_mean);
-    float y_var = calc_variance(y, len_y, y_mean);
+    double x_var = calc_variance(x, len_x, x_mean);
+    double y_var = calc_variance(y, len_y, y_mean);
 
     //sum of difference product (x, y)
-    float sum_x_y = calc_covariance(x, y, len_x, x_mean, y_mean);
+    double sum_x_y = calc_covariance(x, y, len_x, x_mean, y_mean);
     
     //regression coefficients 
-    float beta_1 = calc_beta1(sum_x_y, x_var);
-    float beta_0 = calc_beta0(x_mean, y_mean, beta_1);
+    double beta_1 = calc_beta1(sum_x_y, x_var);
+    double beta_0 = calc_beta0(x_mean, y_mean, beta_1);
 
     //y_hat 
     predict_y(x, y_hat, len_x, beta_0, beta_1);
 
     //mse 
-    float sse = calc_sse(y, y_hat, len_y);
+    double sse = calc_sse(y, y_hat, len_y);
     
     // output results
     cout << "\n---------------Summary Statistics---------------\n" << endl;
@@ -155,9 +171,14 @@ int main() {
     cout << "\nMean Square Error (MSE): " << sse / len_y << endl;
     cout << "Root Mean Square Error (RMSE): " << sqrt(sse / len_y) << endl;
     
-
+    // garbage memory cleanup
     delete[] x;
+    delete[] y;
+    delete[] y_hat;
+
     x = nullptr;
+    y = nullptr; 
+    y_hat= nullptr;
 
     return 0;
 }
