@@ -74,6 +74,32 @@ double calc_sse(double y[], double y_hat[], int len){
     return sse; 
 }
 
+double calc_mae(double y[], double y_pred[], int len){
+
+    double mae = 0.0;
+
+    for (int i = 0; i < len; i++){
+
+        if ((y[i] - y_pred[i]) < 0){
+            mae += -(y[i] - y_pred[i]);
+        } else{
+            mae += (y[i] - y_pred[i]);
+        }
+
+    }
+    return (mae / len);
+}
+
+double calc_r_squared(double sst, double ssr){
+
+    double r_squared = 0.0;
+
+    r_squared = 1 - (ssr / sst);
+    
+    return r_squared; 
+
+}
+
 int main() {
 
     //Read .csv file (static)
@@ -152,6 +178,12 @@ int main() {
 
     //mse 
     double sse = calc_sse(y, y_hat, len_y);
+
+    //mae
+    double mae = calc_mae(y, y_hat, len_y);
+
+    //r_squared
+    double rsq = calc_r_squared(y_var, sse);
     
     // output results
     cout << "\n---------------Summary Statistics---------------\n" << endl;
@@ -170,7 +202,9 @@ int main() {
     
     cout << "\nMean Square Error (MSE): " << sse / len_y << endl;
     cout << "Root Mean Square Error (RMSE): " << sqrt(sse / len_y) << endl;
-    
+    cout << "Mean Absolute Error (MAE): " << mae << endl;
+    cout << "Coeffecient of Determination (R^2): "<< rsq << endl;
+
     // garbage memory cleanup
     delete[] x;
     delete[] y;
