@@ -105,7 +105,7 @@ int main() {
     //Read .csv file (static)
     int loc = 0;
     int i = 0;
-    int N = 0; 
+    int n = 0; 
     
     ifstream iFile;
     string line = "", first = "", last = "";
@@ -113,20 +113,20 @@ int main() {
     getline(iFile,line);
 
     while (getline(iFile, line)){ 
-        N++;
+        n++;
     }
     
-    cout << "Number of rows in the dataset: " << N << endl; 
+    cout << "Number of rows in the dataset: " << n << endl; 
 
     iFile.close();
 
     iFile.open("tips.csv");
     getline(iFile,line);
 
-    double* x = new double[N]; 
-    double* y = new double[N]; 
+    double* x = new double[n]; 
+    double* y = new double[n]; 
 
-    while (getline(iFile,line) && i < N){
+    while (getline(iFile,line) && i < n){
 
         loc = line.find(",");
         first = line.substr(0, loc);
@@ -144,17 +144,17 @@ int main() {
 
     iFile.close();
 
-    if (N <= 0){
+    if (n <= 0){
         cout << "Number of rows should be greated than 0" << endl;
         return 1;
     }
 
     //Inititalizing Accumulators 
-    int len_x = N;
-    int len_y = N;
+    int len_x = n;
+    int len_y = n;
 
     // dynamically allocated arrays 
-    double* y_hat = new double[N];
+    double* y_hat = new double[n];
     
     cout << "Welcome to Machine Learning in C++" << endl;
     
