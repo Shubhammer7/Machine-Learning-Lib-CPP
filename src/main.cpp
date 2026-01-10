@@ -3,6 +3,50 @@
 #include <cmath>
 using namespace std;
 
+struct Dataset {
+    double* x;
+    double* y;
+    int n;
+
+    Dataset(int size) {
+        n = size;
+        x = new double[n];
+        y = new double[n];
+    }
+
+    ~Dataset() {
+        delete[] x;
+        delete[] y;
+    }
+};
+
+struct RegressionResults {
+    double beta_0;
+    double beta_1;
+    double x_mean;
+    double y_mean;
+    double mse;
+    double r_squared;
+};
+
+
+void read_csv(const string& path, Dataset& data) {
+    ifstream file(path);
+    string line;
+    getline(file, line); 
+
+    int i = 0;
+    while (getline(file, line) && i < data.n) {
+        int loc = line.find(",");
+        double x_val = stod(line.substr(0, loc));
+        double y_val = stod(line.substr(loc + 1));
+
+        data.x[i] = x_val;
+        data.y[i] = y_val;
+        i++;
+    }
+}
+
 // y_hat prediction 
 void predict_y(double x[], double y_hat[], int len, double beta0, double beta1){
 
@@ -100,54 +144,40 @@ double calc_r_squared(double sst, double ssr){
 
 }
 
-int main() {
+int count_rows(string path) {
 
-    //Read .csv file (static)
+    int n = 0; 
     int loc = 0;
     int i = 0;
-    int n = 0; 
-    
+
     ifstream iFile;
     string line = "", first = "", last = "";
-    iFile.open("tips.csv");
+    iFile.open(path);
     getline(iFile,line);
 
     while (getline(iFile, line)){ 
         n++;
     }
     
-    cout << "Number of rows in the dataset: " << n << endl; 
-
     iFile.close();
 
-    iFile.open("tips.csv");
-    getline(iFile,line);
+    return n;
+}
 
-    double* x = new double[n]; 
-    double* y = new double[n]; 
 
-    while (getline(iFile,line) && i < n){
+int main() {   
 
-        loc = line.find(",");
-        first = line.substr(0, loc);
-        line = line.substr(loc + 1, line.length());
-
-        loc = line.find(",");
-        last = line.substr(0, loc);
-        line = line.substr(loc + 1, line.length());
-        
-        x[i] = stod(first);
-        y[i] = stod(last);
-
-        i++;
-    }
-
-    iFile.close();
-
+    int n = count_rows("tips.csv");
     if (n <= 0){
         cout << "Number of rows should be greated than 0" << endl;
         return 1;
     }
+
+    Dataset data(n); 
+    read_csv("tips.csv", data);
+
+    int loc = 0;
+    int i = 0;
 
     //Inititalizing Accumulators 
     int len_x = n;
@@ -159,28 +189,28 @@ int main() {
     cout << "Welcome to Machine Learning in C++" << endl;
     
     // means
-    double x_mean = calc_mean(x, len_x);
-    double y_mean = calc_mean(y, len_y);
+    double x_mean = calc_mean(data.x, len_x);
+    double y_mean = calc_mean(data.y, len_y);
 
     //variance
-    double x_var = calc_variance(x, len_x, x_mean);
-    double y_var = calc_variance(y, len_y, y_mean);
+    double x_var = calc_variance(data.x, len_x, x_mean);
+    double y_var = calc_variance(data.y, len_y, y_mean);
 
     //sum of difference product (x, y)
-    double sum_x_y = calc_covariance(x, y, len_x, x_mean, y_mean);
+    double sum_x_y = calc_covariance(data.x, data.y, len_x, x_mean, y_mean);
     
     //regression coefficients 
     double beta_1 = calc_beta1(sum_x_y, x_var);
     double beta_0 = calc_beta0(x_mean, y_mean, beta_1);
 
     //y_hat 
-    predict_y(x, y_hat, len_x, beta_0, beta_1);
+    predict_y(data.x, y_hat, len_x, beta_0, beta_1);
 
     //mse 
-    double sse = calc_sse(y, y_hat, len_y);
+    double sse = calc_sse(data.y, y_hat, len_y);
 
     //mae
-    double mae = calc_mae(y, y_hat, len_y);
+    double mae = calc_mae(data.y, y_hat, len_y);
 
     //r_squared
     double rsq = calc_r_squared(y_var, sse);
@@ -206,13 +236,7 @@ int main() {
     cout << "Coeffecient of Determination (R^2): "<< rsq << endl;
 
     // garbage memory cleanup
-    delete[] x;
-    delete[] y;
     delete[] y_hat;
-
-    x = nullptr;
-    y = nullptr; 
-    y_hat= nullptr;
 
     return 0;
 }
