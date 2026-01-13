@@ -20,12 +20,31 @@ struct Dataset {
     }
 };
 
+struct Predictions {
+    double* y_hat;
+    int n;
+
+    Predictions(int size){
+        n = size;
+        y_hat = new double[n];        
+    }
+
+    ~Predictions() {
+        delete[] y_hat;
+    }
+};
+
 struct RegressionResults {
     double beta_0;
     double beta_1;
     double x_mean;
     double y_mean;
+    double ssx;
+    double ssy;
+    double sse;
+    double sum_x_y;
     double mse;
+    double mae;
     double r_squared;
 };
 
@@ -55,6 +74,42 @@ void predict_y(double x[], double y_hat[], int len, double beta0, double beta1){
     }
 
 }
+RegressionResults train(const Dataset& data, Predictions& preds) {
+
+    RegressionResults res;
+
+    int len_x = data.n;
+    int len_y = data.n;
+    
+    // means
+    res.x_mean = calc_mean(data.x, len_x);
+    res.y_mean = calc_mean(data.y, len_y);
+
+    //variance
+    res.ssx = calc_ss(data.x, len_x, res.x_mean);
+    res.ssy = calc_ss(data.y, len_y, res.y_mean);
+
+    //sum of difference product (x, y)
+    res.sum_x_y = calc_covariance(data.x, data.y, len_x, res.x_mean, res.y_mean);
+    
+    //regression coefficients 
+    res.beta_1 = calc_beta1(res.sum_x_y, res.ssx);
+    res.beta_0 = calc_beta0(res.x_mean, res.y_mean, res.beta_1);
+
+    predict_y(data.x, preds.y_hat, len_x, res.beta_0, res.beta_1);
+
+    //mse 
+    res.sse = calc_sse(data.y, preds.y_hat, len_y);
+
+    //mae
+    res.mae = calc_mae(data.y, preds.y_hat, len_y);
+
+    //r_squared
+    res.r_squared = calc_r_squared(res.ssy, res.sse);
+
+    return res;
+
+}
 
 // All calcs for stats and reg coeff
 double calc_mean(double arr[], int len){
@@ -67,7 +122,7 @@ double calc_mean(double arr[], int len){
     return arr_mean;
 } 
 
-double calc_variance(double arr[],int len, double mean) {
+double calc_ss(double arr[],int len, double mean) {
     
     double var = 0.0;
 
@@ -144,6 +199,11 @@ double calc_r_squared(double sst, double ssr){
 
 }
 
+
+
+
+
+
 int count_rows(string path) {
 
     int n = 0; 
@@ -174,69 +234,38 @@ int main() {
     }
 
     Dataset data(n); 
+    Predictions preds(n);
     read_csv("tips.csv", data);
 
     int loc = 0;
     int i = 0;
+    int len_x = data.n;
+    int len_y = data.n;
 
-    //Inititalizing Accumulators 
-    int len_x = n;
-    int len_y = n;
-
-    // dynamically allocated arrays 
-    double* y_hat = new double[n];
     
     cout << "Welcome to Machine Learning in C++" << endl;
     
-    // means
-    double x_mean = calc_mean(data.x, len_x);
-    double y_mean = calc_mean(data.y, len_y);
-
-    //variance
-    double x_var = calc_variance(data.x, len_x, x_mean);
-    double y_var = calc_variance(data.y, len_y, y_mean);
-
-    //sum of difference product (x, y)
-    double sum_x_y = calc_covariance(data.x, data.y, len_x, x_mean, y_mean);
-    
-    //regression coefficients 
-    double beta_1 = calc_beta1(sum_x_y, x_var);
-    double beta_0 = calc_beta0(x_mean, y_mean, beta_1);
-
-    //y_hat 
-    predict_y(data.x, y_hat, len_x, beta_0, beta_1);
-
-    //mse 
-    double sse = calc_sse(data.y, y_hat, len_y);
-
-    //mae
-    double mae = calc_mae(data.y, y_hat, len_y);
-
-    //r_squared
-    double rsq = calc_r_squared(y_var, sse);
+    RegressionResults res = train(data,preds);
     
     // output results
     cout << "\n---------------Summary Statistics---------------\n" << endl;
-    cout << "Mean of X: " << x_mean << endl;
-    cout << "Variance of X: " << x_var / (len_x - 1) << " (sample)" << endl;
-    cout << "Standard Deviation of X: " << sqrt(x_var / (len_x - 1)) << " (sample)" << endl;
+    cout << "Mean of X: " << res.x_mean << endl;
+    cout << "Variance of X: " << res.ssx / (len_x - 1) << " (sample)" << endl;
+    cout << "Standard Deviation of X: " << sqrt(res.ssx / (len_x - 1)) << " (sample)" << endl;
     
-    cout << "\nMean of Y: " << y_mean << endl;
-    cout << "Variance of Y: " << y_var / (len_y - 1) << " (sample)" << endl;
-    cout << "Standard Deviation of Y: " << sqrt(y_var / (len_y - 1)) << " (sample)" << endl;
+    cout << "\nMean of Y: " << res.y_mean << endl;
+    cout << "Variance of Y: " << res.ssy / (len_y - 1) << " (sample)" << endl;
+    cout << "Standard Deviation of Y: " << sqrt(res.beta_1 / (len_y - 1)) << " (sample)" << endl;
     
-    cout << "\nCovariance of (X,Y): " << sum_x_y / (len_x - 1) << " (sample)" << endl;
+    cout << "\nCovariance of (X,Y): " << res.sum_x_y / (len_x - 1) << " (sample)" << endl;
     
-    cout << "\nRegression Coefficient β₁: " << beta_1 << endl;
-    cout << "Intercept β₀: " << beta_0 << endl;
+    cout << "\nRegression Coefficient β₁: " << res.beta_1 << endl;
+    cout << "Intercept β₀: " << res.beta_0 << endl;
     
-    cout << "\nMean Square Error (MSE): " << sse / len_y << endl;
-    cout << "Root Mean Square Error (RMSE): " << sqrt(sse / len_y) << endl;
-    cout << "Mean Absolute Error (MAE): " << mae << endl;
-    cout << "Coeffecient of Determination (R^2): "<< rsq << endl;
-
-    // garbage memory cleanup
-    delete[] y_hat;
+    cout << "\nMean Square Error (MSE): " << res.sse / len_y << endl;
+    cout << "Root Mean Square Error (RMSE): " << sqrt(res.sse / len_y) << endl;
+    cout << "Mean Absolute Error (MAE): " << res.mae << endl;
+    cout << "Coeffecient of Determination (R^2): "<< res.r_squared << endl;
 
     return 0;
 }
