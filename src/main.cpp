@@ -48,7 +48,7 @@ struct RegressionResults {
     double r_squared;
 };
 
-
+// Unsafe input — known technical debt
 void read_csv(const string& path, Dataset& data) {
     ifstream file(path);
     string line;
@@ -66,6 +66,31 @@ void read_csv(const string& path, Dataset& data) {
     }
 }
 
+void head(const Dataset& data){
+
+    if (data.n < 5) {
+        cout << "Dataset has less than 5 rows! " << endl;
+        return;
+    }
+
+    for (int i = 0; i < 5; i++){
+        cout << data.x[i] << " " << data.y[i] << endl;
+    }
+}
+
+void tail(const Dataset& data){
+
+    if (data.n < 5) {
+        cout << "Dataset has less than 5 rows! " << endl;
+        return;
+    }
+
+    for (int i = (data.n - 5); i < data.n; i++){
+        cout << data.x[i] << " " << data.y[i] << endl;
+    }
+}
+
+
 // y_hat prediction 
 void predict_y(double x[], double y_hat[], int len, double beta0, double beta1){
 
@@ -74,42 +99,19 @@ void predict_y(double x[], double y_hat[], int len, double beta0, double beta1){
     }
 
 }
-RegressionResults train(const Dataset& data, Predictions& preds) {
 
-    RegressionResults res;
+void preview_predictions(const Predictions& preds, int n = 5){
 
-    int len_x = data.n;
-    int len_y = data.n;
-    
-    // means
-    res.x_mean = calc_mean(data.x, len_x);
-    res.y_mean = calc_mean(data.y, len_y);
+    if (n > preds.n) {
+        cout << "n cannot be greater than the length of the dataset" << endl;
+        return;
+    }
 
-    //variance
-    res.ssx = calc_ss(data.x, len_x, res.x_mean);
-    res.ssy = calc_ss(data.y, len_y, res.y_mean);
-
-    //sum of difference product (x, y)
-    res.sum_x_y = calc_covariance(data.x, data.y, len_x, res.x_mean, res.y_mean);
-    
-    //regression coefficients 
-    res.beta_1 = calc_beta1(res.sum_x_y, res.ssx);
-    res.beta_0 = calc_beta0(res.x_mean, res.y_mean, res.beta_1);
-
-    predict_y(data.x, preds.y_hat, len_x, res.beta_0, res.beta_1);
-
-    //mse 
-    res.sse = calc_sse(data.y, preds.y_hat, len_y);
-
-    //mae
-    res.mae = calc_mae(data.y, preds.y_hat, len_y);
-
-    //r_squared
-    res.r_squared = calc_r_squared(res.ssy, res.sse);
-
-    return res;
-
+    for (int i = 0; i < n; i++ ){
+        cout << preds.y_hat[i] << endl;
+    }
 }
+
 
 // All calcs for stats and reg coeff
 double calc_mean(double arr[], int len){
@@ -199,9 +201,42 @@ double calc_r_squared(double sst, double ssr){
 
 }
 
+RegressionResults train(const Dataset& data, Predictions& preds) {
 
+    RegressionResults res;
 
+    int len_x = data.n;
+    int len_y = data.n;
+    
+    // means
+    res.x_mean = calc_mean(data.x, len_x);
+    res.y_mean = calc_mean(data.y, len_y);
 
+    //variance
+    res.ssx = calc_ss(data.x, len_x, res.x_mean);
+    res.ssy = calc_ss(data.y, len_y, res.y_mean);
+
+    //sum of difference product (x, y)
+    res.sum_x_y = calc_covariance(data.x, data.y, len_x, res.x_mean, res.y_mean);
+    
+    //regression coefficients 
+    res.beta_1 = calc_beta1(res.sum_x_y, res.ssx);
+    res.beta_0 = calc_beta0(res.x_mean, res.y_mean, res.beta_1);
+
+    predict_y(data.x, preds.y_hat, len_x, res.beta_0, res.beta_1);
+
+    //mse 
+    res.sse = calc_sse(data.y, preds.y_hat, len_y);
+
+    //mae
+    res.mae = calc_mae(data.y, preds.y_hat, len_y);
+
+    //r_squared
+    res.r_squared = calc_r_squared(res.ssy, res.sse);
+
+    return res;
+
+}
 
 
 int count_rows(string path) {
@@ -224,7 +259,6 @@ int count_rows(string path) {
     return n;
 }
 
-
 int main() {   
 
     int n = count_rows("tips.csv");
@@ -242,10 +276,16 @@ int main() {
     int len_x = data.n;
     int len_y = data.n;
 
+    RegressionResults res = train(data,preds);
     
     cout << "Welcome to Machine Learning in C++" << endl;
-    
-    RegressionResults res = train(data,preds);
+
+    cout << "\nFirst 5 rows of the dataset: " << endl;
+    head(data);
+
+    cout << "\nLast 5 rows of the dataset: " << endl;
+    tail(data);
+
     
     // output results
     cout << "\n---------------Summary Statistics---------------\n" << endl;
@@ -255,13 +295,16 @@ int main() {
     
     cout << "\nMean of Y: " << res.y_mean << endl;
     cout << "Variance of Y: " << res.ssy / (len_y - 1) << " (sample)" << endl;
-    cout << "Standard Deviation of Y: " << sqrt(res.beta_1 / (len_y - 1)) << " (sample)" << endl;
+    cout << "Standard Deviation of Y: " << sqrt(res.ssy / (len_y - 1)) << " (sample)" << endl;
     
     cout << "\nCovariance of (X,Y): " << res.sum_x_y / (len_x - 1) << " (sample)" << endl;
     
     cout << "\nRegression Coefficient β₁: " << res.beta_1 << endl;
     cout << "Intercept β₀: " << res.beta_0 << endl;
-    
+
+    cout << "\nPredictions: " << endl;
+    preview_predictions(preds, 5);
+
     cout << "\nMean Square Error (MSE): " << res.sse / len_y << endl;
     cout << "Root Mean Square Error (RMSE): " << sqrt(res.sse / len_y) << endl;
     cout << "Mean Absolute Error (MAE): " << res.mae << endl;
