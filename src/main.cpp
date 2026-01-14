@@ -10,11 +10,12 @@ struct Dataset {
     int n;
     int c;
 
-    Dataset(int size_rows) {
+    Dataset(int size_rows, int size_cols) {
         n = size_rows;
-        // c = size_cols;
+        c = size_cols;
         x = new double[n];
         y = new double[n];
+        cols = new string[c];
     }
 
     ~Dataset() {
@@ -60,25 +61,15 @@ struct RegressionResults {
 
 //Unsafe input — known technical debt
 void read_csv(const string& path, Dataset& data) {
-    ifstream file(path);
 
+    ifstream file(path);
     string line;
     getline(file, line); 
-    int loc = 0;
+
     int i = 0;
-
-    while (i < data.c - 1) { 
-        loc = line.find(",");
-        data.cols[i] = line.substr(0, loc);
-        line = line.substr(loc + 1);  
-        i++;
-    }
-
-    data.cols[i] = line; 
-
     if (file) {
-        cout << ".csv file is loaded successfully!" <<endl;
-        cout << "Number of Rows: " << data.n << endl;
+        cout << "\n.csv file is loaded successfully, reading data..." <<endl;
+        cout << "\nNumber of Rows: " << data.n << endl;
         cout << "Number of Columns: " << data.c << endl;
         
 
@@ -97,6 +88,29 @@ void read_csv(const string& path, Dataset& data) {
     } 
 }
 
+void get_cols(Dataset& data, const string& path) {
+
+    ifstream file(path);
+
+    string line;
+    getline(file, line); 
+    int loc = 0;
+    int i = 0;
+
+    while (i < data.c - 1) { 
+        loc = line.find(",");
+        data.cols[i] = line.substr(0, loc);
+        line = line.substr(loc + 1);  
+        i++;
+    }
+
+    data.cols[i] = line; 
+
+    for (int i = 0; i < data.c; i++) {
+        cout << data.cols[i] << endl;
+    }
+
+}
 void head(const Dataset& data){
 
     if (data.n < 5) {
@@ -289,7 +303,7 @@ int count_rows(string path) {
     ifstream iFile;
 
     if (iFile) {
-        cout << ".csv file loaded successfully, counting rows!" << endl;
+        cout << "\n.csv file loaded successfully, counting rows!" << endl;
         string line = "", first = "", last = "";
         iFile.open(path);
         getline(iFile,line);
@@ -310,7 +324,7 @@ int count_rows(string path) {
 
 int count_cols(string path) {
     int c = 1;
-    ifstream file("tips.csv");
+    ifstream file(path);
     string line;
 
     getline(file, line);
@@ -328,10 +342,11 @@ int count_cols(string path) {
 
 int main() {   
     
-    int n = count_rows("tips.csv");
-    int c = count_cols("tips.csv");
+    string path = "tips.csv";
+    int n = count_rows(path);
+    int c = count_cols(path);
 
-    Dataset data(n); 
+    Dataset data(n,c); 
     Predictions preds(n);
 
     read_csv("tips.csv", data);
@@ -342,7 +357,10 @@ int main() {
 
     RegressionResults res = train(data,preds);
     
-    cout << "Welcome to Machine Learning in C++" << endl;
+    cout << "\nWelcome to Machine Learning in C++" << endl;
+
+    cout << "\nColumns in the dataset: " << endl;
+    get_cols(data, path);
 
     cout << "\nFirst 5 rows of the dataset: " << endl;
     head(data);
