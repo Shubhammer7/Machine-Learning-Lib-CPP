@@ -5,6 +5,7 @@
 main
 *.out
 *.exe
+*.csv
 
 # Debug symbols (macOS / LLDB)
 *.dSYM/
@@ -16,3 +17,6 @@ tut.cpp
 
 # Editors
 .vscode/
+
+#.csv
+src/tips.csv

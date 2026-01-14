@@ -6,10 +6,13 @@ using namespace std;
 struct Dataset {
     double* x;
     double* y;
+    string* cols;
     int n;
+    int c;
 
-    Dataset(int size) {
-        n = size;
+    Dataset(int size_rows) {
+        n = size_rows;
+        // c = size_cols;
         x = new double[n];
         y = new double[n];
     }
@@ -17,6 +20,11 @@ struct Dataset {
     ~Dataset() {
         delete[] x;
         delete[] y;
+        delete[] cols;
+
+        x = nullptr;
+        y = nullptr;
+        cols = nullptr;
     }
 };
 
@@ -31,6 +39,8 @@ struct Predictions {
 
     ~Predictions() {
         delete[] y_hat;
+
+        y_hat = nullptr;
     }
 };
 
@@ -48,22 +58,43 @@ struct RegressionResults {
     double r_squared;
 };
 
-// Unsafe input — known technical debt
+//Unsafe input — known technical debt
 void read_csv(const string& path, Dataset& data) {
     ifstream file(path);
+
     string line;
     getline(file, line); 
-
+    int loc = 0;
     int i = 0;
-    while (getline(file, line) && i < data.n) {
-        int loc = line.find(",");
-        double x_val = stod(line.substr(0, loc));
-        double y_val = stod(line.substr(loc + 1));
 
-        data.x[i] = x_val;
-        data.y[i] = y_val;
+    while (i < data.c - 1) { 
+        loc = line.find(",");
+        data.cols[i] = line.substr(0, loc);
+        line = line.substr(loc + 1);  
         i++;
     }
+
+    data.cols[i] = line; 
+
+    if (file) {
+        cout << ".csv file is loaded successfully!" <<endl;
+        cout << "Number of Rows: " << data.n << endl;
+        cout << "Number of Columns: " << data.c << endl;
+        
+
+        while (getline(file, line) && i < data.n) {
+            int loc = line.find(",");
+            double x_val = stod(line.substr(0, loc));
+            double y_val = stod(line.substr(loc + 1));
+
+            data.x[i] = x_val;
+            data.y[i] = y_val;
+            i++;
+    }
+    } else {
+        cout << "failed to read .csv, please check file path!" <<endl;
+        return;
+    } 
 }
 
 void head(const Dataset& data){
@@ -91,6 +122,7 @@ void tail(const Dataset& data){
 }
 
 
+
 // y_hat prediction 
 void predict_y(double x[], double y_hat[], int len, double beta0, double beta1){
 
@@ -112,17 +144,30 @@ void preview_predictions(const Predictions& preds, int n = 5){
     }
 }
 
+double kahan_sum(double arr[], int len) {
+
+    double sum = 0.0;
+    double c = 0.0;         
+
+    for (int i = 0; i < len; i++) {
+        double y = arr[i] - c;
+        double t = sum + y;
+        c = (t - sum) -y; 
+        sum = t;
+    }
+
+    return sum;
+}
 
 // All calcs for stats and reg coeff
-double calc_mean(double arr[], int len){
-    double arr_sum = 0.0;
 
-    for (int i=0;i<len;i++){
-        arr_sum += arr[i];
-    }
-    double arr_mean = (arr_sum / len);
-    return arr_mean;
-} 
+double calc_mean(const Dataset& data, double arr[]) {
+
+    double arr_sum = kahan_sum(arr, data.n);
+
+    return arr_sum / data.n;
+
+}
 
 double calc_ss(double arr[],int len, double mean) {
     
@@ -209,8 +254,8 @@ RegressionResults train(const Dataset& data, Predictions& preds) {
     int len_y = data.n;
     
     // means
-    res.x_mean = calc_mean(data.x, len_x);
-    res.y_mean = calc_mean(data.y, len_y);
+    res.x_mean = calc_mean(data, data.x);
+    res.y_mean = calc_mean(data, data.y);
 
     //variance
     res.ssx = calc_ss(data.x, len_x, res.x_mean);
@@ -238,41 +283,60 @@ RegressionResults train(const Dataset& data, Predictions& preds) {
 
 }
 
-
 int count_rows(string path) {
 
     int n = 0; 
-    int loc = 0;
-    int i = 0;
-
     ifstream iFile;
-    string line = "", first = "", last = "";
-    iFile.open(path);
-    getline(iFile,line);
 
-    while (getline(iFile, line)){ 
-        n++;
+    if (iFile) {
+        cout << ".csv file loaded successfully, counting rows!" << endl;
+        string line = "", first = "", last = "";
+        iFile.open(path);
+        getline(iFile,line);
+
+        while (getline(iFile, line)){ 
+            n++;
+        }
+        
+        iFile.close();
     }
-    
-    iFile.close();
+    else {
+        cout << "Failed to count rows, please check file path!" << endl;
+    }
 
     return n;
+    
+}
+
+int count_cols(string path) {
+    int c = 1;
+    ifstream file("tips.csv");
+    string line;
+
+    getline(file, line);
+
+    for (int i = 0; i < line.size(); i++){
+        if (line[i] == ','){
+            c++;
+        }
+    }
+
+    file.close();
+
+    return c;
 }
 
 int main() {   
-
+    
     int n = count_rows("tips.csv");
-    if (n <= 0){
-        cout << "Number of rows should be greated than 0" << endl;
-        return 1;
-    }
+    int c = count_cols("tips.csv");
 
     Dataset data(n); 
     Predictions preds(n);
-    read_csv("tips.csv", data);
 
-    int loc = 0;
-    int i = 0;
+    read_csv("tips.csv", data);
+   
+
     int len_x = data.n;
     int len_y = data.n;
 
@@ -286,7 +350,6 @@ int main() {
     cout << "\nLast 5 rows of the dataset: " << endl;
     tail(data);
 
-    
     // output results
     cout << "\n---------------Summary Statistics---------------\n" << endl;
     cout << "Mean of X: " << res.x_mean << endl;
