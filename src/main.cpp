@@ -4,28 +4,40 @@
 using namespace std;
 
 struct Dataset {
-    double* x;
+    double* x1;
+    double* x2;
+    double* x3;
     double* y;
-    string* cols;
     int n;
     int c;
+    string* cols;
+    double* beta_hat;
 
     Dataset(int size_rows, int size_cols) {
         n = size_rows;
         c = size_cols;
-        x = new double[n];
+        x1 = new double[n];
+        x2 = new double[n];
+        x3 = new double[n];
         y = new double[n];
+        beta_hat = new double[n * c];
         cols = new string[c];
     }
 
     ~Dataset() {
-        delete[] x;
+        delete[] x1;
+        delete[] x2;
+        delete[] x3;
         delete[] y;
         delete[] cols;
+        delete[] beta_hat;
 
-        x = nullptr;
+        x1 = nullptr;
+        x2 = nullptr;
+        x3 = nullptr;
         y = nullptr;
         cols = nullptr;
+        beta_hat = nullptr;
     }
 };
 
@@ -75,11 +87,15 @@ void read_csv(const string& path, Dataset& data) {
 
         while (getline(file, line) && i < data.n) {
             int loc = line.find(",");
-            double x_val = stod(line.substr(0, loc));
-            double y_val = stod(line.substr(loc + 1));
+            double x1 = stod(line.substr(0, loc));
+            double x2 = stod(line.substr(loc + 1));
+            double x3 = stod(line.substr(loc + 2));
+            double y = stod(line.substr(loc + 3));
 
-            data.x[i] = x_val;
-            data.y[i] = y_val;
+            data.x1[i] = x1;
+            data.x2[i] = x2;
+            data.x3[i] = x3;
+            data.y[i] = y;
             i++;
     }
     } else {
@@ -119,7 +135,7 @@ void head(const Dataset& data){
     }
 
     for (int i = 0; i < 5; i++){
-        cout << data.x[i] << " " << data.y[i] << endl;
+        cout << data.x1[i] << " "<< data.x2[i] << data.x3[i] << " " << data.y[i] << endl;
     }
 }
 
@@ -131,7 +147,7 @@ void tail(const Dataset& data){
     }
 
     for (int i = (data.n - 5); i < data.n; i++){
-        cout << data.x[i] << " " << data.y[i] << endl;
+        cout << data.x1[i] << " "<< data.x2[i] << data.x3[i] << " " << data.y[i] << endl;
     }
 }
 
@@ -158,6 +174,7 @@ void preview_predictions(const Predictions& preds, int n = 5){
     }
 }
 
+
 double kahan_sum(double arr[], int len) {
 
     double sum = 0.0;
@@ -166,7 +183,7 @@ double kahan_sum(double arr[], int len) {
     for (int i = 0; i < len; i++) {
         double y = arr[i] - c;
         double t = sum + y;
-        c = (t - sum) -y; 
+        c = (t - sum) - y; 
         sum = t;
     }
 
@@ -268,21 +285,21 @@ RegressionResults train(const Dataset& data, Predictions& preds) {
     int len_y = data.n;
     
     // means
-    res.x_mean = calc_mean(data, data.x);
+    res.x_mean = calc_mean(data, data.x1);
     res.y_mean = calc_mean(data, data.y);
 
     //variance
-    res.ssx = calc_ss(data.x, len_x, res.x_mean);
+    res.ssx = calc_ss(data.x1, len_x, res.x_mean);
     res.ssy = calc_ss(data.y, len_y, res.y_mean);
 
     //sum of difference product (x, y)
-    res.sum_x_y = calc_covariance(data.x, data.y, len_x, res.x_mean, res.y_mean);
+    res.sum_x_y = calc_covariance(data.x1, data.y, len_x, res.x_mean, res.y_mean);
     
     //regression coefficients 
     res.beta_1 = calc_beta1(res.sum_x_y, res.ssx);
     res.beta_0 = calc_beta0(res.x_mean, res.y_mean, res.beta_1);
 
-    predict_y(data.x, preds.y_hat, len_x, res.beta_0, res.beta_1);
+    predict_y(data.x1, preds.y_hat, len_x, res.beta_0, res.beta_1);
 
     //mse 
     res.sse = calc_sse(data.y, preds.y_hat, len_y);
@@ -342,14 +359,14 @@ int count_cols(string path) {
 
 int main() {   
     
-    string path = "tips.csv";
+    string path = "diamonds.csv";
     int n = count_rows(path);
     int c = count_cols(path);
 
     Dataset data(n,c); 
     Predictions preds(n);
 
-    read_csv("tips.csv", data);
+    read_csv(path, data);
    
 
     int len_x = data.n;
