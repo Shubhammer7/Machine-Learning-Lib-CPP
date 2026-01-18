@@ -4,9 +4,7 @@
 using namespace std;
 
 struct Dataset {
-    double* x1;
-    double* x2;
-    double* x3;
+    double* data;
     double* y;
     int n;
     int c;
@@ -16,25 +14,18 @@ struct Dataset {
     Dataset(int size_rows, int size_cols) {
         n = size_rows;
         c = size_cols;
-        x1 = new double[n];
-        x2 = new double[n];
-        x3 = new double[n];
+        data = new double[n * c];
         y = new double[n];
         beta_hat = new double[n * c];
         cols = new string[c];
     }
 
     ~Dataset() {
-        delete[] x1;
-        delete[] x2;
-        delete[] x3;
-        delete[] y;
+        delete[] data;
         delete[] cols;
         delete[] beta_hat;
 
-        x1 = nullptr;
-        x2 = nullptr;
-        x3 = nullptr;
+        data = nullptr;
         y = nullptr;
         cols = nullptr;
         beta_hat = nullptr;
@@ -71,37 +62,32 @@ struct RegressionResults {
     double r_squared;
 };
 
-//Unsafe input — known technical debt
-void read_csv(const string& path, Dataset& data) {
+void read_csv(const string& path, Dataset& df) {
 
     ifstream file(path);
     string line;
     getline(file, line); 
 
-    int i = 0;
-    if (file) {
-        cout << "\n.csv file is loaded successfully, reading data..." <<endl;
-        cout << "\nNumber of Rows: " << data.n << endl;
-        cout << "Number of Columns: " << data.c << endl;
-        
+    int row = 0;
 
-        while (getline(file, line) && i < data.n) {
-            int loc = line.find(",");
-            double x1 = stod(line.substr(0, loc));
-            double x2 = stod(line.substr(loc + 1));
-            double x3 = stod(line.substr(loc + 2));
-            double y = stod(line.substr(loc + 3));
+    while (getline(file, line) && row < df.n) {
+        int col = 0;
+        size_t start = 0;
 
-            data.x1[i] = x1;
-            data.x2[i] = x2;
-            data.x3[i] = x3;
-            data.y[i] = y;
-            i++;
+        while (col < df.c) {
+            size_t comma = line.find(',', start);
+            string value = line.substr(start, comma - start);
+
+            df.data[row * df.c + col] = stod(value);
+
+            if (comma == string::npos) break;
+            start = comma + 1;
+            col++;
+        }
+
+        row++;
     }
-    } else {
-        cout << "failed to read .csv, please check file path!" <<endl;
-        return;
-    } 
+
 }
 
 void get_cols(Dataset& data, const string& path) {
@@ -127,27 +113,33 @@ void get_cols(Dataset& data, const string& path) {
     }
 
 }
-void head(const Dataset& data){
+void head(const Dataset& df){
 
-    if (data.n < 5) {
+    if (df.n < 5) {
         cout << "Dataset has less than 5 rows! " << endl;
         return;
     }
 
-    for (int i = 0; i < 5; i++){
-        cout << data.x1[i] << " "<< data.x2[i] << data.x3[i] << " " << data.y[i] << endl;
+   for (int i = 0; i < 5; i++) {
+        for (int j = 0; j < df.c; j++) {
+            cout << df.data[i * df.c + j] << " ";
+        }
+        cout << endl;
     }
 }
 
-void tail(const Dataset& data){
+void tail(const Dataset& df){
 
-    if (data.n < 5) {
+    if (df.n < 5) {
         cout << "Dataset has less than 5 rows! " << endl;
         return;
     }
 
-    for (int i = (data.n - 5); i < data.n; i++){
-        cout << data.x1[i] << " "<< data.x2[i] << data.x3[i] << " " << data.y[i] << endl;
+    for (int i = (df.n - 5); i < df.n; i++){
+        for (int j = 0; j < df.c; j++) {
+            cout << df.data[i * df.c + j] << " ";
+        }
+        cout << endl;
     }
 }
 
@@ -277,35 +269,35 @@ double calc_r_squared(double sst, double ssr){
 
 }
 
-RegressionResults train(const Dataset& data, Predictions& preds) {
+RegressionResults train(const Dataset& df, Predictions& preds) {
 
     RegressionResults res;
 
-    int len_x = data.n;
-    int len_y = data.n;
+    int len_x = df.n;
+    int len_y = df.n;
     
     // means
-    res.x_mean = calc_mean(data, data.x1);
-    res.y_mean = calc_mean(data, data.y);
+    res.x_mean = calc_mean(df, df.data);
+    res.y_mean = calc_mean(df, df.y);
 
     //variance
-    res.ssx = calc_ss(data.x1, len_x, res.x_mean);
-    res.ssy = calc_ss(data.y, len_y, res.y_mean);
+    res.ssx = calc_ss(df.data, len_x, res.x_mean);
+    res.ssy = calc_ss(df.y, len_y, res.y_mean);
 
     //sum of difference product (x, y)
-    res.sum_x_y = calc_covariance(data.x1, data.y, len_x, res.x_mean, res.y_mean);
+    res.sum_x_y = calc_covariance(df.data, df.y, len_x, res.x_mean, res.y_mean);
     
     //regression coefficients 
     res.beta_1 = calc_beta1(res.sum_x_y, res.ssx);
     res.beta_0 = calc_beta0(res.x_mean, res.y_mean, res.beta_1);
 
-    predict_y(data.x1, preds.y_hat, len_x, res.beta_0, res.beta_1);
+    predict_y(df.data, preds.y_hat, len_x, res.beta_0, res.beta_1);
 
     //mse 
-    res.sse = calc_sse(data.y, preds.y_hat, len_y);
+    res.sse = calc_sse(df.y, preds.y_hat, len_y);
 
     //mae
-    res.mae = calc_mae(data.y, preds.y_hat, len_y);
+    res.mae = calc_mae(df.y, preds.y_hat, len_y);
 
     //r_squared
     res.r_squared = calc_r_squared(res.ssy, res.sse);
