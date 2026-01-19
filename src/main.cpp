@@ -8,6 +8,9 @@ struct Dataset {
     double* y;
     int n;
     int c;
+    int* x_id;
+    int x_len;
+    int y_id;
     string* cols;
     double* beta_hat;
 
@@ -16,7 +19,8 @@ struct Dataset {
         c = size_cols;
         data = new double[n * c];
         y = new double[n];
-        beta_hat = new double[n * c];
+        x_id = new int[c - 1];
+        beta_hat = new double[c];
         cols = new string[c];
     }
 
@@ -24,11 +28,13 @@ struct Dataset {
         delete[] data;
         delete[] cols;
         delete[] beta_hat;
+        delete[] x_id;
 
         data = nullptr;
         y = nullptr;
         cols = nullptr;
         beta_hat = nullptr;
+        x_id = nullptr;
     }
 };
 
@@ -143,6 +149,24 @@ void tail(const Dataset& df){
     }
 }
 
+void select_cols(Dataset& data, string dcols[], string dcol, int len_x){
+
+    if (len_x >= data.c) {
+        cout << "Cannot include the entire dataset as the independent variables!" << endl;
+    }
+
+    for (int i = 0; i < len_x; i++){
+        for (int j = 0; j < data.c; j++){
+            if (dcols[i] == data.cols[j]){
+                data.x_id[i] = j;
+                cout << data.x_id[i] << endl;
+            } else if (dcol == data.cols[j]){
+                data.y_id = j;
+            }
+        }
+    }   
+}
+
 
 
 // y_hat prediction 
@@ -163,6 +187,34 @@ void preview_predictions(const Predictions& preds, int n = 5){
 
     for (int i = 0; i < n; i++ ){
         cout << preds.y_hat[i] << endl;
+    }
+}
+
+void compute_XtX(const Dataset& df) {
+
+    double XtX[df.c * df.c];
+
+    for (int i = 0; i < df.c * df.c; i++) {
+        XtX[i] = 0.0;
+    } 
+
+    for (int i = 0; i < df.c; i++) {          // column i
+        for (int j = 0; j < df.c; j++) {      // column j
+            double sum = 0.0;
+
+            for (int k = 0; k < df.n; k++) {  // rows
+                sum += df.data[k * df.c + i] * df.data[k * df.c + j];
+            }
+
+            XtX[i * df.c + j] = sum;
+        }
+    }
+
+    for (int i = 0; i < df.c; i++) {
+        for (int j = 0; j < df.c; j++) {
+            cout << XtX[i * df.c + j] << " ";
+        }
+        cout << endl;
     }
 }
 
@@ -218,12 +270,17 @@ double calc_covariance(double x[], double y[], int len, double x_mean, double y_
     return sum_x_y ;
 }
 
-double calc_beta1(double cov_xy, double var_x){
+// double calc_beta1(Dataset& df, int len_x){
 
-    double beta1 = cov_xy / var_x;       
+//     double t_m[len_x];
 
-    return beta1;
-}
+//     for (int i = 0; i < df.n; i++){
+//         for (int j = 0; j < len_x; j++){
+//                 t_m[j] = df.data[   ]
+//             }
+
+//         }
+// }
 
 double calc_beta0(double x_mean, double y_mean, double beta1) {
 
@@ -288,8 +345,8 @@ RegressionResults train(const Dataset& df, Predictions& preds) {
     res.sum_x_y = calc_covariance(df.data, df.y, len_x, res.x_mean, res.y_mean);
     
     //regression coefficients 
-    res.beta_1 = calc_beta1(res.sum_x_y, res.ssx);
-    res.beta_0 = calc_beta0(res.x_mean, res.y_mean, res.beta_1);
+    // res.beta_1 = calc_beta1(res.sum_x_y, res.ssx);
+    // res.beta_0 = calc_beta0(res.x_mean, res.y_mean, res.beta_1);
 
     predict_y(df.data, preds.y_hat, len_x, res.beta_0, res.beta_1);
 
@@ -374,31 +431,36 @@ int main() {
     cout << "\nFirst 5 rows of the dataset: " << endl;
     head(data);
 
+    cout << "\nTransposed Data (head)" << endl;
+    compute_XtX(data);
+
     cout << "\nLast 5 rows of the dataset: " << endl;
     tail(data);
 
+
+
     // output results
-    cout << "\n---------------Summary Statistics---------------\n" << endl;
-    cout << "Mean of X: " << res.x_mean << endl;
-    cout << "Variance of X: " << res.ssx / (len_x - 1) << " (sample)" << endl;
-    cout << "Standard Deviation of X: " << sqrt(res.ssx / (len_x - 1)) << " (sample)" << endl;
+    // cout << "\n---------------Summary Statistics---------------\n" << endl;
+    // cout << "Mean of X: " << res.x_mean << endl;
+    // cout << "Variance of X: " << res.ssx / (len_x - 1) << " (sample)" << endl;
+    // cout << "Standard Deviation of X: " << sqrt(res.ssx / (len_x - 1)) << " (sample)" << endl;
     
-    cout << "\nMean of Y: " << res.y_mean << endl;
-    cout << "Variance of Y: " << res.ssy / (len_y - 1) << " (sample)" << endl;
-    cout << "Standard Deviation of Y: " << sqrt(res.ssy / (len_y - 1)) << " (sample)" << endl;
+    // cout << "\nMean of Y: " << res.y_mean << endl;
+    // cout << "Variance of Y: " << res.ssy / (len_y - 1) << " (sample)" << endl;
+    // cout << "Standard Deviation of Y: " << sqrt(res.ssy / (len_y - 1)) << " (sample)" << endl;
     
-    cout << "\nCovariance of (X,Y): " << res.sum_x_y / (len_x - 1) << " (sample)" << endl;
+    // cout << "\nCovariance of (X,Y): " << res.sum_x_y / (len_x - 1) << " (sample)" << endl;
     
-    cout << "\nRegression Coefficient β₁: " << res.beta_1 << endl;
-    cout << "Intercept β₀: " << res.beta_0 << endl;
+    // cout << "\nRegression Coefficient β₁: " << res.beta_1 << endl;
+    // cout << "Intercept β₀: " << res.beta_0 << endl;
 
-    cout << "\nPredictions: " << endl;
-    preview_predictions(preds, 5);
+    // cout << "\nPredictions: " << endl;
+    // preview_predictions(preds, 5);
 
-    cout << "\nMean Square Error (MSE): " << res.sse / len_y << endl;
-    cout << "Root Mean Square Error (RMSE): " << sqrt(res.sse / len_y) << endl;
-    cout << "Mean Absolute Error (MAE): " << res.mae << endl;
-    cout << "Coeffecient of Determination (R^2): "<< res.r_squared << endl;
+    // cout << "\nMean Square Error (MSE): " << res.sse / len_y << endl;
+    // cout << "Root Mean Square Error (RMSE): " << sqrt(res.sse / len_y) << endl;
+    // cout << "Mean Absolute Error (MAE): " << res.mae << endl;
+    // cout << "Coeffecient of Determination (R^2): "<< res.r_squared << endl;
 
     return 0;
 }
