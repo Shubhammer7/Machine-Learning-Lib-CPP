@@ -190,35 +190,6 @@ void preview_predictions(const Predictions& preds, int n = 5){
     }
 }
 
-void compute_XtX(const Dataset& df) {
-
-    double XtX[df.c * df.c];
-
-    for (int i = 0; i < df.c * df.c; i++) {
-        XtX[i] = 0.0;
-    } 
-
-    for (int i = 0; i < df.c; i++) {          // column i
-        for (int j = 0; j < df.c; j++) {      // column j
-            double sum = 0.0;
-
-            for (int k = 0; k < df.n; k++) {  // rows
-                sum += df.data[k * df.c + i] * df.data[k * df.c + j];
-            }
-
-            XtX[i * df.c + j] = sum;
-        }
-    }
-
-    for (int i = 0; i < df.c; i++) {
-        for (int j = 0; j < df.c; j++) {
-            cout << XtX[i * df.c + j] << " ";
-        }
-        cout << endl;
-    }
-}
-
-
 double kahan_sum(double arr[], int len) {
 
     double sum = 0.0;
@@ -270,17 +241,74 @@ double calc_covariance(double x[], double y[], int len, double x_mean, double y_
     return sum_x_y ;
 }
 
-// double calc_beta1(Dataset& df, int len_x){
+void calc_beta1(const Dataset& df) {
 
-//     double t_m[len_x];
+    // calculating the X^TX the hard way, will replace with cholesky soon
+    double XtX[df.c * df.c];
 
-//     for (int i = 0; i < df.n; i++){
-//         for (int j = 0; j < len_x; j++){
-//                 t_m[j] = df.data[   ]
-//             }
+    for (int i = 0; i < df.c * df.c; i++) {
+        XtX[i] = 0.0;
+    } 
 
-//         }
-// }
+    for (int i = 0; i < df.c; i++) {          // column i
+        for (int j = 0; j < df.c; j++) {      // column j
+            double sum = 0.0;
+
+            for (int k = 0; k < df.n; k++) {  // rows
+                sum += df.data[k * df.c + i] * df.data[k * df.c + j];
+            }
+
+            XtX[i * df.c + j] = sum;
+        }
+    }
+
+    // LU decomposition for matrix inverse
+    for (int k = 0; k < df.c; k++) {
+
+        for (int i = k + 1; i < df.c; i++) {
+            XtX[i * df.c + k] /= XtX[k * df.c + k];
+        }
+
+        for (int i = k + 1; i < df.c; i++) {
+            for (int j = k + 1; j < df.c; j++) {
+                XtX[i * df.c + j] -= XtX[i * df.c + k] * XtX[k * df.c + j];
+            }
+        }
+    }
+
+    double inv[df.c * df.c];
+
+    for (int col = 0; col < df.c; col++) {
+
+        double y[df.c];
+
+        for (int i = 0; i < df.c; i++) {
+            y[i] = (i == col) ? 1.0 : 0.0;
+
+            for (int j = 0; j < i; j++) {
+                y[i] -= XtX[i * df.c + j] * y[j];
+            }
+        }
+
+        for (int i = df.c - 1; i >= 0; i--) {
+            inv[i * df.c + col] = y[i];
+
+            for (int j = i + 1; j < df.c; j++) {
+                inv[i * df.c + col] -= XtX[i * df.c + j] * inv[j * df.c + col];
+            }
+
+            inv[i * df.c + col] /= XtX[i * df.c + i];
+        }
+    }
+
+    cout << "\n(X^T X)^-1\n";
+    for (int i = 0; i < df.c; i++) {
+        for (int j = 0; j < df.c; j++) {
+            cout << inv[i * df.c + j] << " ";
+        }
+        cout << endl;
+    }
+}
 
 double calc_beta0(double x_mean, double y_mean, double beta1) {
 
@@ -432,7 +460,7 @@ int main() {
     head(data);
 
     cout << "\nTransposed Data (head)" << endl;
-    compute_XtX(data);
+    calc_beta1(data);
 
     cout << "\nLast 5 rows of the dataset: " << endl;
     tail(data);
