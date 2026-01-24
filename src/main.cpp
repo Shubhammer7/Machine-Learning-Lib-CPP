@@ -4,23 +4,32 @@
 using namespace std;
 
 struct Dataset {
+
+    int* x_id;
+
     double* data;
+    double* x;
     double* y;
+    double* beta_hat;
+
     int n;
     int c;
-    int* x_id;
     int x_len;
     int y_id;
+
     string* cols;
-    double* beta_hat;
 
     Dataset(int size_rows, int size_cols) {
         n = size_rows;
         c = size_cols;
+
         data = new double[n * c];
+        x = new double[n * c];
         y = new double[n];
-        x_id = new int[c - 1];
-        beta_hat = new double[c];
+
+        x_len = 0;
+        x_id = new int[c];
+        beta_hat = new double[c - 1];
         cols = new string[c];
     }
 
@@ -29,8 +38,11 @@ struct Dataset {
         delete[] cols;
         delete[] beta_hat;
         delete[] x_id;
+        delete[] x;
+        delete[] y;
 
         data = nullptr;
+        x = nullptr;
         y = nullptr;
         cols = nullptr;
         beta_hat = nullptr;
@@ -149,24 +161,47 @@ void tail(const Dataset& df){
     }
 }
 
-void select_cols(Dataset& data, string dcols[], string dcol, int len_x){
+void select_cols(Dataset& df, string dcols[], string dcol, int len_x){
 
-    if (len_x >= data.c) {
+    if (len_x >= df.c) {
         cout << "Cannot include the entire dataset as the independent variables!" << endl;
     }
 
+    df.x_len = len_x;
+
     for (int i = 0; i < len_x; i++){
-        for (int j = 0; j < data.c; j++){
-            if (dcols[i] == data.cols[j]){
-                data.x_id[i] = j;
-                cout << data.x_id[i] << endl;
-            } else if (dcol == data.cols[j]){
-                data.y_id = j;
+        for (int j = 0; j < df.c; j++){
+            if (dcols[i] == df.cols[j]){
+                df.x_id[i] = j;
+                // cout << data.x_id[i] << endl;  // debug selected cols index
+            } else if (dcol == df.cols[j]){
+                df.y_id = j;
             }
         }
     }   
-}
 
+    for (int i = 0; i < df.n; i ++){
+        for (int j = 0; j < len_x; j++){
+            df.x[i * len_x + j] = df.data[i * df.c + df.x_id[j]];
+            df.y[i] = df.data[i * df.c + df.y_id];
+        }
+    }
+
+    cout << "\nAll X columns and values" << endl;
+    for (int i = 0; i < 5; i++){
+        for (int j = 0; j < len_x; j++){
+            cout << df.x[i * len_x + j] << " "; 
+        }
+        cout << endl;
+    }
+
+    cout << "\nAll y values: " << endl;
+    for (int i = 0; i < 5; i++){
+        cout << df.y[i] << endl;;
+    }
+    
+
+}
 
 
 // y_hat prediction 
@@ -243,71 +278,125 @@ double calc_covariance(double x[], double y[], int len, double x_mean, double y_
 
 void calc_beta1(const Dataset& df) {
 
-    // calculating the X^TX the hard way, will replace with cholesky soon
-    double XtX[df.c * df.c];
+    int num_vars = df.x_len;
 
-    for (int i = 0; i < df.c * df.c; i++) {
+    // calculating the X^TX the hard way, will replace with cholesky soon
+    double* XtX = new double[num_vars * num_vars];
+    double* Xty = new double[num_vars];
+
+    for (int i = 0; i < num_vars * num_vars; i++) {
         XtX[i] = 0.0;
     } 
 
-    for (int i = 0; i < df.c; i++) {          // column i
-        for (int j = 0; j < df.c; j++) {      // column j
+    // X^tX
+    for (int i = 0; i < num_vars; i++) {          // column i
+        for (int j = 0; j < num_vars; j++) {      // column j
             double sum = 0.0;
 
             for (int k = 0; k < df.n; k++) {  // rows
-                sum += df.data[k * df.c + i] * df.data[k * df.c + j];
+                sum += df.x[k * num_vars + i] * df.x[k * num_vars + j];
             }
 
-            XtX[i * df.c + j] = sum;
+            XtX[i * num_vars + j] = sum;
         }
+    }
+
+    //Xty
+    for (int i = 0; i < num_vars; i++) {
+        double sum = 0.0;
+
+        for (int k = 0; k < df.n; k++) {
+            sum += df.x[k * num_vars + i] * df.y[k];
+        }
+
+        Xty[i] = sum;
     }
 
     // LU decomposition for matrix inverse
-    for (int k = 0; k < df.c; k++) {
+    for (int k = 0; k < num_vars; k++) {
 
         for (int i = k + 1; i < df.c; i++) {
-            XtX[i * df.c + k] /= XtX[k * df.c + k];
+            XtX[i * num_vars + k] /= XtX[k * num_vars + k];
         }
 
-        for (int i = k + 1; i < df.c; i++) {
-            for (int j = k + 1; j < df.c; j++) {
-                XtX[i * df.c + j] -= XtX[i * df.c + k] * XtX[k * df.c + j];
+        for (int i = k + 1; i < num_vars; i++) {
+            for (int j = k + 1; j < num_vars; j++) {
+                XtX[i * num_vars + j] -= XtX[i * num_vars+ k] * XtX[k * num_vars + j];
             }
         }
     }
 
-    double inv[df.c * df.c];
+    double* inv = new double[num_vars * num_vars];
 
-    for (int col = 0; col < df.c; col++) {
+    for (int col = 0; col < num_vars; col++) {
 
-        double y[df.c];
+        double* y = new double[num_vars];
 
-        for (int i = 0; i < df.c; i++) {
+        for (int i = 0; i <  num_vars; i++) {
             y[i] = (i == col) ? 1.0 : 0.0;
 
             for (int j = 0; j < i; j++) {
-                y[i] -= XtX[i * df.c + j] * y[j];
+                y[i] -= XtX[i * num_vars + j] * y[j];
             }
         }
 
-        for (int i = df.c - 1; i >= 0; i--) {
-            inv[i * df.c + col] = y[i];
+        for (int i = num_vars - 1; i >= 0; i--) {
+            inv[i * num_vars + col] = y[i];
 
-            for (int j = i + 1; j < df.c; j++) {
-                inv[i * df.c + col] -= XtX[i * df.c + j] * inv[j * df.c + col];
+            for (int j = i + 1; j < num_vars; j++) {
+                inv[i * num_vars + col] -= XtX[i * num_vars + j] * inv[j * num_vars + col];
             }
 
-            inv[i * df.c + col] /= XtX[i * df.c + i];
+            inv[i * num_vars + col] /= XtX[i * num_vars + i];
         }
+
+        delete[] y;
     }
 
-    cout << "\n(X^T X)^-1\n";
-    for (int i = 0; i < df.c; i++) {
-        for (int j = 0; j < df.c; j++) {
-            cout << inv[i * df.c + j] << " ";
+    // final betas 
+
+    for (int i = 0; i < num_vars; i++) {   // for each beta
+        double sum = 0.0;
+
+        for (int j = 0; j < num_vars; j++) {
+            sum += inv[i * num_vars + j] * Xty[j];
+        }
+
+        df.beta_hat[i] = sum;
+    }
+
+    cout << "\nInverse X^tX" << endl;
+
+    for (int i = 0; i < num_vars; i++) {
+        for (int j = 0; j < num_vars; j++) {
+            cout << inv[i * num_vars + j] << " ";
         }
         cout << endl;
     }
+
+    cout << "\nX^ty" << endl;
+
+    for (int i = 0; i < num_vars; i++) {
+        for (int j = 0; j < num_vars; j++) {
+            cout << Xty[i * num_vars + j] << " ";
+        }
+        cout << endl;
+    }
+
+    cout << "\nBeta Coefficients: " << endl;
+
+    for (int i = 0; i < num_vars; i++){
+        cout << df.beta_hat[i] << endl;
+    }
+
+    delete[] XtX;
+    delete[] Xty;
+    delete[] inv;
+
+    XtX = nullptr;
+    Xty = nullptr;
+    inv = nullptr;
+
 }
 
 double calc_beta0(double x_mean, double y_mean, double beta1) {
@@ -437,6 +526,10 @@ int count_cols(string path) {
 int main() {   
     
     string path = "diamonds.csv";
+
+    string X_col[3] = {"carat","depth","x"};
+    string y_col = "price";
+
     int n = count_rows(path);
     int c = count_cols(path);
 
@@ -459,14 +552,19 @@ int main() {
     cout << "\nFirst 5 rows of the dataset: " << endl;
     head(data);
 
-    cout << "\nTransposed Data (head)" << endl;
-    calc_beta1(data);
-
     cout << "\nLast 5 rows of the dataset: " << endl;
     tail(data);
 
+    cout << "---------------------------------------------------------" << endl;
 
+    cout << "\nSelected columns (X): " << endl;
+    select_cols(data, X_col, y_col, 3);
 
+    cout << "---------------------------------------------------------" << endl;
+
+    cout << "\nInversed data" << endl;
+    calc_beta1(data);
+   
     // output results
     // cout << "\n---------------Summary Statistics---------------\n" << endl;
     // cout << "Mean of X: " << res.x_mean << endl;
